@@ -35,7 +35,8 @@ class WC_PJBank_Gateway extends WC_Payment_Gateway {
                 'desc_tip'      => true,
             ),
             'title' => array(
-                'title' => __( 'Título', 'woocommerce' ), => 'text',
+                'title' => __( 'Título', 'woocommerce' ), 
+                'type' => 'text', 
                 'description' => __( 'Adicione um titulo para seu metodo de pagamento', 'woocommerce' ),
                 'default' => __( 'Boleto Bancário', 'woocommerce' ),
                 'desc_tip'      => true,

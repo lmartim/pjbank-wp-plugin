@@ -1,10 +1,10 @@
 <?php
 
-class WC_PJBank_Gateway extends WC_Payment_Gateway {
+class WC_PJBank_Gateway_Boleto extends WC_Payment_Gateway {
     function __construct(){
         // define configurações basicas do plugin
-        $this->id = "pjbank";
-        $this->method_title = "PJBank";
+        $this->id = "pjbank_boleto";
+        $this->method_title = "PJBank - Boleto";
         $this->method_description = "Metodo de pagamento PJBank";
         $this->has_fields = false;
 
@@ -14,7 +14,7 @@ class WC_PJBank_Gateway extends WC_Payment_Gateway {
 
         //os campos que foram iniciados no meu plugin
         $this->title = $this->settings['title'];
-        $this->token = $this->settings['token'];
+        $this->credencial = $this->settings['credencial'];
 
         add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
     }
@@ -27,10 +27,10 @@ class WC_PJBank_Gateway extends WC_Payment_Gateway {
                 'label' => __( 'Pagamento Habilitado', 'woocommerce' ),
                 'default' => 'no'
             ),
-            'token' => array(
-                'title' => __( 'Token', 'woocommerce' ),
+            'credencial' => array(
+                'title' => __( 'Credencial', 'woocommerce' ),
                 'type' => 'text',
-                'description' => __( 'Adicione o token', 'woocommerce' ),
+                'description' => __( 'Adicione a credencial', 'woocommerce' ),
                 'default' => __( '', 'woocommerce' ),
                 'desc_tip'      => true,
             ),
@@ -94,12 +94,9 @@ class WC_PJBank_Gateway extends WC_Payment_Gateway {
         $date = date('Y-m-d');
         $vencimento = $options['vencimento'];
         $vencimento = date('m/d/Y', strtotime(date('Y-m-d') . ' + '.$vencimento.' days'));
-
-        // Reduce stock levels
-        // $order->reduce_order_stock();
-
-        // Remove cart
-        // $woocommerce->cart->empty_cart();
+        $post_boleto = $_POST['post_boleto']; 
+        update_post_meta( $order_id, '_post_boleto', $post_boleto );
+        update_post_meta( $order_id, '_pj_boleto', true );
 
         // Monta o array de composição de items do boleto
         $composicoes = '';
@@ -117,7 +114,7 @@ class WC_PJBank_Gateway extends WC_Payment_Gateway {
         // Inicia chamada cURL
         $curl = curl_init();
         curl_setopt_array($curl, array(
-            CURLOPT_URL => "https://api.pjbank.com.br/recebimentos/".$options['token']."/transacoes",
+            CURLOPT_URL => "https://sandbox.pjbank.com.br/contadigital/".$options['credencial']."/recebimentos/transacoes",
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => "",
             CURLOPT_MAXREDIRS => 10,
@@ -127,7 +124,7 @@ class WC_PJBank_Gateway extends WC_Payment_Gateway {
             CURLOPT_POSTFIELDS => '{
                 "vencimento": "'.$vencimento.'",
                 "valor": "'.$total.'",
-                "juros": "'.$options['juros'].'",
+                "juros": "'.$options['juros'].'", 
                 "multa": "'.$options['multa'].'",
                 "desconto": "'.$options['desconto'].'",
                 "nome_cliente": "'.get_user_meta( $user_id, 'billing_first_name', true ).' '.get_user_meta( $user_id, 'billing_last_name', true ).'",
@@ -149,22 +146,33 @@ class WC_PJBank_Gateway extends WC_Payment_Gateway {
         )); 
         // Retorno da API é salvo no $response
         $response = curl_exec($curl);
+        $err = curl_error($curl);
+
         curl_close($curl);
         // FIM - Chamada da API para gerar o boleto
 
         // Adiciona custom note no pedido, com o JSON que retorna da API
-        // $order->add_order_note("composicao:".$composicao);
-        $order->add_order_note($response);
+        if ($err) {
+            $order->add_order_note('Err: '.$err);
+            wc_add_notice( __('Erro de pagamento: ', 'woothemes') . $err, 'error' );
+        } else {
+            $order->add_order_note('Response: '.$response);
+        }
 
         // Decodifica o JSON, para poder manipular no foreach, para ter acesso aos dados
         $response = json_decode($response);
 
         foreach ($response as $key => $value) {
-            // $order->add_order_note($key, $value);
             if($key == 'status'){
-                if($value == 500){
-                    wc_add_notice( __('Erro de pagamento: ', 'woothemes') . 'Entre em contato com o administrador, para verificar o problema.', 'error' );
+                if(($value != "200") && ($value != "201")){
+                    $error = true;
+                }else{
+                    $error = false;
                 }
+            }
+
+            if($key == 'msg'){
+                $msg = $value;
             }
 
             // Salva o 'nosso numero' dentro do pedido, junto com as informações de cobrança
@@ -175,24 +183,13 @@ class WC_PJBank_Gateway extends WC_Payment_Gateway {
             if($key == 'linkBoleto'){
 
                 update_post_meta( $order_id, '_link_boleto', $value );
-
-                // funções para disparo de e-mail.
-                // Ele pega as informações do usuário logado e recupera o e-mail dele.
-                // Abaixo, é montado o restante das informações do e-mail, para realizar o disparo.
-                // $to =  $current_user->user_email;
-                // $subject = 'teste';
-                // $body = 'Link para o boleto: ' . $value;
-                // $headers = array('Content-Type: text/html; charset=UTF-8');
-                // $mailResult = wp_mail($to, $subject, $body);
-                // $order->add_order_note('to:'.$to);
-                // $order->add_order_note('subject:'.$subject);
-                // $order->add_order_note('headers:'.$headers);
-                // $order->add_order_note('body:'.$body);
-                // $order->add_order_note('email:'.$mailResult);
             }
         }
-        // Mark as on-hold (we're awaiting the cheque)
-        // $order->update_status('on-hold', __( 'Awaiting cheque payment', 'woocommerce' ));
+
+        if($error){
+            wc_add_notice( __('Erro de pagamento: ', 'woothemes') . $value, 'error' );
+        }
+
         // Return thankyou redirect
         return array(
             'result' => 'success',
@@ -201,7 +198,7 @@ class WC_PJBank_Gateway extends WC_Payment_Gateway {
     }
 
     public function admin_options(){
-        echo '<h3>'.__('PJBank', 'woocommerce').'</h3>';
+        echo '<h3>'.__('PJBank - Boleto Bancário', 'woocommerce').'</h3>';
         echo '<p>'.__('Gere boletos usando PJBank.').'</p>';
         echo '<table class="form-table">';
         // Generate the HTML For the settings form.

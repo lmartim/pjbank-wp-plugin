@@ -14,7 +14,7 @@ class WC_PJBank_Gateway_Boleto extends WC_Payment_Gateway {
 
         //os campos que foram iniciados no meu plugin
         $this->title = $this->settings['title'];
-        $this->credencial = $this->settings['credencial'];
+        $this->token = $this->settings['credencial'];
 
         add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
     }
@@ -88,7 +88,7 @@ class WC_PJBank_Gateway_Boleto extends WC_Payment_Gateway {
         // Busca o usuário logado e as configurações do Plugin
         $current_user = wp_get_current_user();
         $user_id = get_current_user_id();
-        $options = get_option('woocommerce_pjbank_settings');
+        $options = get_option('woocommerce_pjbank_boleto_settings');
 
         // Calcula data de vencimento
         $date = date('Y-m-d');
@@ -114,7 +114,7 @@ class WC_PJBank_Gateway_Boleto extends WC_Payment_Gateway {
         // Inicia chamada cURL
         $curl = curl_init();
         curl_setopt_array($curl, array(
-            CURLOPT_URL => "https://sandbox.pjbank.com.br/contadigital/".$options['credencial']."/recebimentos/transacoes",
+            CURLOPT_URL => "https://api.pjbank.com.br/recebimentos/".$options['credencial']."/transacoes",
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => "",
             CURLOPT_MAXREDIRS => 10,
@@ -187,7 +187,7 @@ class WC_PJBank_Gateway_Boleto extends WC_Payment_Gateway {
         }
 
         if($error){
-            wc_add_notice( __('Erro de pagamento: ', 'woothemes') . $value, 'error' );
+            wc_add_notice( __('Erro de pagamento: ', 'woothemes') . $msg, 'error' );
         }
 
         // Return thankyou redirect

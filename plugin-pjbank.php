@@ -4,8 +4,8 @@ Plugin Name: Boleto PJBank
 Plugin URI:  https://pjbank.com.br
 Description: Plugin de integração e geração de boletos com o PJBank.
 Version:     1.0
-Author:      PJBank
-Author URI:  https://pjbank.com.br
+Author:      Lucas Martim
+Author URI:  https://linkedin.com/in/lmartim
 License:     GPL2
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Text Domain: wporg
@@ -16,7 +16,7 @@ Domain Path: /languages
 function some_custom_checkout_field_boleto($checkout){
 	$user_id = get_current_user_id();
 
-	$options = get_option('woocommerce_pjbank_cartao_settings');
+	$options = get_option('woocommerce_pjbank_boleto_settings');
 	$enabled_boleto = $options['enabled'];
 	$cpf_cnpj = get_user_meta( $user_id, '_cpf_cnpj', true );
 
@@ -105,14 +105,14 @@ function your_custom_field_function_name_boleto($order){
 	if($pj_boleto){
 		$nosso_numero = get_post_meta($order->get_id(), '_nosso_numero', true);
 		if(isset($nosso_numero[0])){
-			echo "<p><b style='color: #333'>Nosso Número:</b><br /> " . $nosso_numero[0] . "</p>";
+			echo "<p><b style='color: #333'>Nosso Número:</b><br /> " . $nosso_numero . "</p>";
 		}else{
 			echo "<p><b style='color: #333'>Nosso Número:</b><br /> Não identificado</p>";
 		}
 	
 		$link_boleto = get_post_meta( $order->get_id(), '_link_boleto', true);
 		if(isset($link_boleto[0])){
-			echo "<p><b style='color: #333'>Link para o boleto:</b><br /><a href='". $link_boleto[0] ."' target='_blank'> Clique aqui para visualizar</a></p>";
+			echo "<p><b style='color: #333'>Link para o boleto:</b><br /><a href='". $link_boleto ."' target='_blank'> Clique aqui para visualizar</a></p>";
 		}else{
 			echo "<p><b style='color: #333'>Link para o boleto:</b><br /> Não identificado</p>";
 		}

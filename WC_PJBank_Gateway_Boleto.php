@@ -109,7 +109,6 @@ class WC_PJBank_Gateway_Boleto extends WC_Payment_Gateway {
             $composicoes[$item]["item_valor"] = $value['item_meta']['_line_total'][0];
             $item += 1; 
         }
-        $composicoes = json_encode($composicoes);
 
         // Inicia chamada cURL
         $curl = curl_init();
